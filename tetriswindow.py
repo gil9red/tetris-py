@@ -38,6 +38,15 @@ class TetrisWindow(QWidget):
         self.pauseButton = QPushButton("Pause")
         self.pauseButton.setFocusPolicy(Qt.NoFocus)
 
+        self.startButton.clicked.connect(self.board.start)
+
+        # connect(quitButton , SIGNAL(clicked()), qApp, SLOT(quit()));
+        # connect(pauseButton, SIGNAL(clicked()), board, SLOT(pause()));
+        # connect(board, SIGNAL(scoreChanged(int)), scoreLcd, SLOT(display(int)));
+        # connect(board, SIGNAL(levelChanged(int)), levelLcd, SLOT(display(int)));
+        # connect(board, SIGNAL(linesRemovedChanged(int)),
+        #         linesLcd, SLOT(display(int)));
+
         layout = QGridLayout()
         layout.addWidget(self.createLabel("NEXT"), 0, 0)
         layout.addWidget(self.nextPieceLabel, 1, 0)
