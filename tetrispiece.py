@@ -3,103 +3,131 @@
 
 __author__ = 'ipetrash'
 
-from PySide.QtGui import *
-from PySide.QtCore import *
-
-from tetrispiece import TetrisPiece, TetrisShape
+from enum import Enum, unique
 
 
-# TODO: закончить портирование
+@unique
+class TetrisShape(Enum):
+    NoShape = 0
+    ZShape = 1
+    SShape = 2
+    LineShape = 3
+    TShape = 4
+    SquareShape = 5
+    LShape = 6
+    MirroredLShape = 7
 
-class TetrisBoard(QWidget):
+
+class TetrisPiece:
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.timer = QBasicTimer()
-        self.nextPieceLabel = None
-        self.isStarted = False
-        self.isPaused = False
-        self.isWaitingAfterLine = False
-        self.curPiece = TetrisPiece()
-        self.nextPiece = TetrisPiece()
-        self.curX = 0
-        self.curY = 0
-        self.numLinesRemoved = 0
-        self.numPiecesDropped = 0
-        self.score = 0
-        self.level = 0
-        self.board = [TetrisShape.NoShape
-                      for i in range(TetrisBoard.BOARD_WIDTH * TetrisBoard.BOARD_HEIGHT)]
+        self.pieceShape = None
+        self.coords = [
+            [0, 0],
+            [0, 0],
+            [0, 0],
+            [0, 0]
+        ]
 
-        # Сигналы
-        self.scoreChanged = Signal(int)
-        self.levelChanged = Signal(int)
-        self.linesRemovedChanged = Signal(int)
+        self.setShape(TetrisShape.NoShape)
 
-    def setNextPieceLabel(self, label):
+    def setRandomShape(self):
         pass
 
-    def sizeHint(self):
-        pass
+    def setShape(self, shape):
+        coordsTable = [
+            [
+                [0, 0], [0, 0], [0, 0], [0, 0]
+            ],
+            [
+                [0, -1], [0, 0], [-1, 0], [-1, 1]
+            ],
+            [
+                [0, -1], [0, 0], [1, 0], [1, 1]
+            ],
+            [
+                [0, -1], [0, 0], [0, 1], [0, 2]
+            ],
+            [
+                [-1, 0], [0, 0], [1, 0], [0, 1]
+            ],
+            [
+                [0, 0], [1, 0], [0, 1], [1, 1]
+            ],
+            [
+                [-1, -1], [0, -1], [0, 0], [0, 1]
+            ],
+            [
+                [1, -1], [0, -1], [0, 0], [0, 1]
+            ],
+        ]
 
-    def minimumSizeHint(self):
-        pass
+        for i in range(4):
+            for j in range(2):
+                self.coords[i][j] = coordsTable[shape.value][i][j]
 
-    # @Slot
-    def start(self):
-        pass
+        self.pieceShape = shape
 
-    # @Slot
-    def pause(self):
-        pass
+    def shape(self):
+        return self.pieceShape
 
-    def paintEvent(self, event):
-        pass
+    def x(self, i):
+        return self.coords[i][0]
 
-    def keyPressEvent(self, event):
-        pass
+    def y(self, i):
+        return self.coords[i][1]
 
-    def timerEvent(self, event):
-        pass
+    def minX(self):
+        min_c = self.coords[0][0]
+        for i in range(1, 4):
+            min_c = min(min_c, self.coords[i][0])
+        return min_c
 
-    BOARD_WIDTH = 10
-    BOARD_HEIGHT = 22
+    def maxX(self):
+        max_c = self.coords[0][0]
+        for i in range(1, 4):
+            max_c = max(max_c, self.coords[i][0])
+        return max_c
 
-    def shapeAt(self, x, y):
-        return self.board[(y * TetrisBoard.BOARD_WIDTH) + x]
+    def minY(self):
+        min_c = self.coords[0][1]
+        for i in range(1, 4):
+            min_c = min(min_c, self.coords[i][1])
+        return min_c
 
-    def timeoutTime(self):
-        return 1000 / (1 + self.level)
+    def maxY(self):
+        max_c = self.coords[0][1]
+        for i in range(1, 4):
+            max_c = max(max_c, self.coords[i][1])
+        return max_c
 
-    def squareWidth(self):
-        return self.contentsRect().width() / TetrisBoard.BOARD_WIDTH
+    def rotatedLeft(self):
+        if self.pieceShape == TetrisShape.SquareShape:
+            return self
 
-    def squareHeight(self):
-        return self.contentsRect().height() / TetrisBoard.BOARD_HEIGHT
+        result = TetrisPiece()
+        result.pieceShape = self.pieceShape
+        for i in range(4):
+            result.setX(i, self.y(i))
+            result.setY(i, -self.x(i))
 
-    def clearBoard(self):
-        pass
+        return result
 
-    def dropDown(self):
-        pass
+    def rotatedRight(self):
+        if self.pieceShape == TetrisShape.SquareShape:
+            return self
 
-    def oneLineDown(self):
-        pass
+        result = TetrisPiece()
+        result.pieceShape = self.pieceShape
+        for i in range(4):
+            result.setX(i, -self.y(i))
+            result.setY(i, self.x(i))
 
-    def pieceDropped(self, dropHeight):
-        pass
+        return result
 
-    def removeFullLines(self):
-        pass
+    def setX(self, i, x):
+        self.coords[i][0] = x
 
-    def newPiece(self):
-        pass
-
-    def showNextPiece(self):
-        pass
-
-    def tryMove(self, newPiece, newX, newY):
-        pass
-
-    def drawSquare(self, painter, x, y, shape):
-        pass
+    def setY(self, i, y):
+        self.coords[i][1] = y
