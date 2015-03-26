@@ -36,7 +36,7 @@ class TetrisBoard(QFrame):
 
         self.clearBoard()
         self.nextPiece.setRandomShape()
-
+        Signal
         # Сигналы
         self.scoreChanged = Signal(int)
         self.levelChanged = Signal(int)
@@ -96,11 +96,11 @@ class TetrisBoard(QFrame):
             painter.drawText(rect, Qt.AlignCenter, "Pause")
             return
 
-        boardTop = rect.bottom() - TetrisBoard.BoardHeight * self.squareHeight()
+        boardTop = rect.bottom() - TetrisBoard.BOARD_HEIGHT * self.squareHeight()
 
-        for i in range(TetrisBoard.BoardHeight):
-            for j in range(TetrisBoard.BoardWidth):
-                shape = self.shapeAt(j, TetrisBoard.BoardHeight - i - 1)
+        for i in range(TetrisBoard.BOARD_HEIGHT):
+            for j in range(TetrisBoard.BOARD_WIDTH):
+                shape = self.getShapeAt(j, TetrisBoard.BOARD_HEIGHT - i - 1)
                 if shape != TetrisShape.NoShape:
                     self.drawSquare(painter, rect.left() + j * self.squareWidth(),
                                     boardTop + i * self.squareHeight(), shape)
@@ -110,7 +110,7 @@ class TetrisBoard(QFrame):
                 x = self.curX + self.curPiece.x(i)
                 y = self.curY - self.curPiece.y(i)
                 self.drawSquare(painter, rect.left() + x * self.squareWidth(),
-                                boardTop + (self.BoardHeight - y - 1) * self.squareHeight(),
+                                boardTop + (self.BOARD_HEIGHT - y - 1) * self.squareHeight(),
                                 self.curPiece.shape())
 
     def keyPressEvent(self, event):
@@ -155,7 +155,10 @@ class TetrisBoard(QFrame):
     BOARD_WIDTH = 10
     BOARD_HEIGHT = 22
 
-    def shapeAt(self, x, y):
+    def setShapeAt(self, x, y, value):
+        self.board[(y * TetrisBoard.BOARD_WIDTH) + x] = value
+
+    def getShapeAt(self, x, y):
         return self.board[(y * TetrisBoard.BOARD_WIDTH) + x]
 
     def timeoutTime(self):
@@ -168,28 +171,139 @@ class TetrisBoard(QFrame):
         return self.contentsRect().height() / TetrisBoard.BOARD_HEIGHT
 
     def clearBoard(self):
-        pass
+        for i in range(TetrisBoard.BOARD_WIDTH * TetrisBoard.BOARD_HEIGHT):
+            self.board[i] = TetrisShape.NoShape
 
     def dropDown(self):
-        pass
+        dropHeight = 0
+        newY = self.curY
+
+        while newY > 0:
+            if not self.tryMove(self.curPiece, self.curX, newY - 1):
+                break
+            newY -= 1
+            dropHeight += 1
+
+        self.pieceDropped(dropHeight)
 
     def oneLineDown(self):
-        pass
+        if not self.tryMove(self.curPiece, self.curX, self.curY - 1):
+            self.pieceDropped(0)
 
     def pieceDropped(self, dropHeight):
-        pass
+        for i in range(4):
+            x = self.curX + self.curPiece.x(i)
+            y = self.curY - self.curPiece.y(i)
+            self.setShapeAt(x, y, self.curPiece.shape())
+
+        self.numPiecesDropped += 1
+        if self.numPiecesDropped % 25 == 0:
+            self.level += 1
+            self.timer.start(self.timeoutTime(), self)
+            self.levelChanged(self.level)
+
+        self.score += dropHeight + 7
+        self.scoreChanged(self.score)
+        self.removeFullLines()
+
+        if not self.isWaitingAfterLine:
+            self.newPiece()
 
     def removeFullLines(self):
-        pass
+        numFullLines = 0
+
+        # TODO: возможно тут ошибка
+        for i in reversed(range(TetrisBoard.BOARD_HEIGHT - 1)):
+            lineIsFull = True
+
+            for j in TetrisBoard.BOARD_WIDTH:
+                if self.shapeAt(j, i) == TetrisShape.NoShape:
+                    lineIsFull = False
+                    break
+
+            if lineIsFull:
+                numFullLines += 1
+                # TODO: возможно тут ошибка
+                for k in range(i, TetrisBoard.BOARD_HEIGHT - 1):
+                    for j in range(TetrisBoard.BOARD_WIDTH):
+                        self.setShapeAt(j, k, self.getShapeAt(j, k + 1))
+
+                for j in range(TetrisBoard.BOARD_WIDTH):
+                    self.setShapeAt(j, TetrisBoard.BOARD_HEIGHT - 1, TetrisShape.NoShape)
+
+        if numFullLines > 0:
+            self.numLinesRemoved += numFullLines
+            self.score += 10 * numFullLines
+            self.linesRemovedChanged(self.numLinesRemoved)
+            self.scoreChanged(self.score)
+
+            self.timer.start(500, self)
+            self.isWaitingAfterLine = True
+            self.curPiece.setShape(TetrisShape.NoShape)
+            self.update()
 
     def newPiece(self):
-        pass
+        curPiece = self.nextPiece
+        self.nextPiece.setRandomShape()
+        self.showNextPiece()
+        curX = TetrisBoard.BOARD_WIDTH / 2 + 1
+        curY = TetrisBoard.BOARD_HEIGHT - 1 + curPiece.minY()
+
+        if not self.tryMove(curPiece, curX, curY):
+            curPiece.setShape(TetrisShape.NoShape)
+            self.timer.stop()
+            self.isStarted = False
 
     def showNextPiece(self):
-        pass
+        if not self.nextPieceLabel:
+            return
+
+        dx = self.nextPiece.maxX() - self.nextPiece.minX() + 1
+        dy = self.nextPiece.maxY() - self.nextPiece.minY() + 1
+
+        pixmap = QPixmap(dx * self.squareWidth(), dy * self.squareHeight())
+        painter = QPainter(pixmap)
+        painter.fillRect(pixmap.rect(), self.nextPieceLabel.palette().background())
+
+        for i in range(4):
+            x = self.nextPiece.x(i) - self.nextPiece.minX()
+            y = self.nextPiece.y(i) - self.nextPiece.minY()
+            self.drawSquare(painter, x * self.squareWidth(), y * self.squareHeight(),
+                            self.nextPiece.shape())
+
+        self.nextPieceLabel.setPixmap(pixmap)
 
     def tryMove(self, newPiece, newX, newY):
-        pass
+        for i in range(4):
+            x = newX + newPiece.x(i);
+            y = newY - newPiece.y(i);
+            if x < 0 or x >= TetrisBoard.BOARD_WIDTH or y < 0 or y >= TetrisBoard.BOARD_HEIGHT:
+                return False
+            
+            if self.getShapeAt(x, y) != TetrisShape.NoShape:
+                return False
+
+        self.curPiece = newPiece
+        self.curX = newX
+        self.curY = newY
+        self.update()
+        return True
 
     def drawSquare(self, painter, x, y, shape):
-        pass
+        COLORTABLE = [
+            0x000000, 0xCC6666, 0x66CC66, 0x6666CC,
+            0xCCCC66, 0xCC66CC, 0x66CCCC, 0xDAAA00
+        ]
+
+        color = COLORTABLE[shape.value]
+        painter.fillRect(x + 1, y + 1, self.squareWidth() - 2, self.squareHeight() - 2, color)
+
+        painter.setPen(color.light())
+        painter.drawLine(x, y + self.squareHeight() - 1, x, y)
+        painter.drawLine(x, y, x + self.squareWidth() - 1, y)
+
+        painter.setPen(color.dark())
+        painter.drawLine(x + 1, y + self.squareHeight() - 1,
+                         x + self.squareWidth() - 1, y + self.squareHeight() - 1)
+        painter.drawLine(x + self.squareWidth() - 1, y + self.squareHeight() - 1,
+                         x + self.squareWidth() - 1, y + 1)
